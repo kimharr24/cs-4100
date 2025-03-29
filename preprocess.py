@@ -1,7 +1,7 @@
 import re
 import os
 import nltk
-import tqdm
+from tqdm import tqdm
 import time
 import pickle
 from nltk.stem import WordNetLemmatizer
@@ -59,7 +59,7 @@ def remove_website_urls(tweet: str) -> str:
     return cleaned_text
 
 
-def get_preprocessed_sentences(sentences: List[str]) -> None:
+def get_preprocessed_sentences(sentences: List[str]) -> List[str]:
     """
     Given a list of sentences, performs the following pre-processing steps:
 
