@@ -3,3 +3,4 @@ data.csv
 __pycache__/
 checkpoints/
 word2vec_twitter_model.bin
+results.txt

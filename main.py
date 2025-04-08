@@ -90,7 +90,6 @@ def evaluate_samples(model, sentences, args) -> None:
             should_lemmatize=args.lemmatize,
             max_word_count=args.max_word_count,
             embed_model=args.embed_model,
-            should_reverse=args.should_reverse,
         ).get_preprocessed_sentences(sentences)
 
         assert len(non_empty_indices) == len(
@@ -189,6 +188,7 @@ def main():
             "I love this product!",
             "This is the worst experience I've ever had.",
             "The service was great.",
+            "I am sad but actually I am not"
         ]
         evaluate_samples(model, sentences, args)
     else:
