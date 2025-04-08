@@ -2,6 +2,8 @@ import pandas as pd
 from torch.utils.data import random_split, DataLoader
 import argparse
 import torch
+import numpy as np
+from sklearn.metrics import classification_report
 from data import TwitterDataset
 from cnn import CNN
 
@@ -18,23 +20,24 @@ def train_model(
     args,
     checkpoint_path="checkpoints/",
 ):
+    """Train the model on the training dataset."""
     print(f"Training model for {args.epochs} epochs")
     model.train()
     for epoch in range(args.epochs):
-        loss, steps = 0, 0
+        total_loss, steps = 0, 0
         for batch in train_loader:
             texts, labels = batch
             texts, labels = texts.to(device), labels.to(device)
             outputs = model(texts)
 
             loss = criterion(outputs, labels)
-            loss += loss.item()
+            total_loss += loss.item()
             steps += 1
 
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-        print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {(loss / steps):.4f}")
+        print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {(total_loss / steps):.4f}")
 
     if args.save_model:
         name = f"model_epochs_{args.epochs}_batch_{args.batch_size}_lr_{args.learning_rate}_sample_{args.sample_percentage}_lemmatize_{args.lemmatize}_max_words_{args.max_word_count}.pth"
@@ -43,6 +46,35 @@ def train_model(
             f"{checkpoint_path}{name}",
         )
         print(f"Model saved to {checkpoint_path}{name}")
+
+
+def test_model(model, test_loader):
+    """Test the model on the test dataset."""
+    print("Testing model...")
+    model.eval()
+
+    all_labels, all_predictions = [], []
+    with torch.no_grad():
+        for batch in test_loader:
+            texts, labels = batch
+            texts, labels = texts.to(device), labels.to(device)
+
+            outputs = model(texts)
+            predicted = torch.sigmoid(outputs).round()
+
+            all_labels.extend(labels.cpu().numpy())
+            all_predictions.extend(predicted.cpu().numpy())
+
+    all_labels = np.array(all_labels)
+    all_predictions = np.array(all_predictions)
+
+    print(
+        classification_report(
+            all_labels,
+            all_predictions,
+            target_names=["Negative Sentiment", "Positive Sentiment"],
+        )
+    )
 
 
 def main():
@@ -109,6 +141,8 @@ def main():
         args=args,
         checkpoint_path="checkpoints/",
     )
+
+    test_model(model, test_loader)
 
 
 if __name__ == "__main__":
