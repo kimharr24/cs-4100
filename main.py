@@ -5,7 +5,8 @@ import torch
 import numpy as np
 from sklearn.metrics import classification_report
 from data import TwitterDataset
-from cnn import CNN
+from models.cnn import CNN
+from models.mlp import MLP
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,6 +119,12 @@ def main():
         default="twitter",
         help="Embedding model to use (googlenews or twitter)",
     )
+    args.add_argument(
+        "--model",
+        type=str,
+        default="cnn",
+        help="Model to use (cnn or mlp)",
+    )
 
     args = args.parse_args()
 
@@ -138,7 +145,13 @@ def main():
 
     embedding_dim = 400 if args.embed_model == "twitter" else 300
 
-    model = CNN(embedding_dim=embedding_dim).to(device)
+    model = (
+        CNN(embedding_dim=embedding_dim).to(device)
+        if args.model == "cnn"
+        else MLP(embedding_dim=embedding_dim, max_word_count=args.max_word_count).to(
+            device
+        )
+    )
     criterion = torch.nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
 
