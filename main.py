@@ -50,7 +50,7 @@ def train_model(
         print(f"Model saved to {checkpoint_path}{name}")
 
 
-def test_model(model, test_loader):
+def test_model(model, test_loader, args):
     """Test the model on the test dataset."""
     print("Testing model...")
     model.eval()
@@ -60,6 +60,9 @@ def test_model(model, test_loader):
         for batch in test_loader:
             texts, labels = batch
             texts, labels = texts.to(device), labels.to(device)
+
+            if args.should_reverse:
+                texts = torch.flip(texts, [2])
 
             outputs = model(texts)
             predicted = torch.sigmoid(outputs).round()
@@ -223,7 +226,7 @@ def main():
             args=args,
             checkpoint_path="checkpoints/",
         )
-        test_model(model, test_loader)
+        test_model(model, test_loader, args)
 
 
 if __name__ == "__main__":

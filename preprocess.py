@@ -33,7 +33,6 @@ class Preprocessor:
         should_lemmatize: bool = True,
         max_word_count: int = 20,
         embed_model: str = "twitter",
-        should_reverse: bool = False,
     ):
         """
         Constructor for the pre-processor object.
@@ -42,13 +41,11 @@ class Preprocessor:
             - should_lemmatize: Whether to perform lemmatization on the tweets.
             - max_word_count: Maximum number of words in a sentence.
             - embed_model: The embedding model to use (twitter or googlenews).
-            - should_reverse: Whether to reverse the order of the words in the sentence.
         """
         assert embed_model in ["twitter", "googlenews"]
         self.should_lemmatize = should_lemmatize
         self.lemmatizer = Lemmatizer() if self.should_lemmatize else None
         self.max_word_count = max_word_count
-        self.should_reverse = should_reverse
 
         model, embedding_dim, vocab = (
             get_twitter_embedding_model()
