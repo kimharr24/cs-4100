@@ -3,7 +3,6 @@ from torch.utils.data import random_split, DataLoader
 import argparse
 import torch
 import numpy as np
-from preprocess import Preprocessor
 from sklearn.metrics import classification_report
 from data import TwitterDataset
 from models.cnn import CNN
@@ -79,15 +78,13 @@ def test_model(model, test_loader):
     )
 
 
-def evaluate_samples(model, sentences, args) -> None:
+def evaluate_samples(model, sentences, args, processor) -> None:
     """Evaluate the model on a list of sentences."""
     model.eval()
     with torch.no_grad():
-        processed_sentences, non_empty_indices = Preprocessor(
-            should_lemmatize=args.lemmatize,
-            max_word_count=args.max_word_count,
-            embed_model=args.embed_model,
-        ).get_preprocessed_sentences(sentences)
+        processed_sentences, non_empty_indices = processor.get_preprocessed_sentences(
+            sentences
+        )
 
         assert len(non_empty_indices) == len(
             processed_sentences
@@ -202,7 +199,7 @@ def main():
             "This is the worst experience I've ever had.",
             "The service was great.",
         ]
-        evaluate_samples(model, sentences, args)
+        evaluate_samples(model, sentences, args, dataset.processor)
         test_model(model, test_loader)
     else:
         train_model(
