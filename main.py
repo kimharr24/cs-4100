@@ -3,6 +3,7 @@ from torch.utils.data import random_split, DataLoader
 import argparse
 import torch
 import numpy as np
+from preprocess import Preprocessor
 from sklearn.metrics import classification_report
 from data import TwitterDataset
 from models.cnn import CNN
@@ -78,6 +79,31 @@ def test_model(model, test_loader):
     )
 
 
+def evaluate_samples(model, sentences, args) -> None:
+    """Evaluate the model on a list of sentences."""
+    model.eval()
+    with torch.no_grad():
+        processed_sentences, non_empty_indices = Preprocessor(
+            should_lemmatize=args.lemmatize,
+            max_word_count=args.max_word_count,
+            embed_model=args.embed_model,
+        ).get_preprocessed_sentences(sentences)
+
+        assert len(non_empty_indices) == len(
+            processed_sentences
+        ), "Should not have empty sentences."
+
+        outputs = model(
+            torch.stack(processed_sentences, dim=0).permute(0, 2, 1).to(device)
+        )
+        predictions = torch.sigmoid(outputs).round().cpu().numpy()
+
+        for idx, sentence in enumerate(sentences):
+            print(
+                f"Sentence: {sentence} | Predicted Sentiment: {'positive' if predictions[idx] == 1 else 'negative'}"
+            )
+
+
 def main():
     args = argparse.ArgumentParser()
 
@@ -125,8 +151,20 @@ def main():
         default="cnn",
         help="Model to use (cnn or mlp)",
     )
+    args.add_argument(
+        "--evaluate_model",
+        action="store_true",
+        help="Whether to evaluate the model.",
+    )
+    args.add_argument(
+        "--checkpoint_path",
+        type=str,
+        help="Path to the model checkpoint",
+    )
 
     args = args.parse_args()
+    if args.evaluate_model:
+        assert args.checkpoint_path, "Checkpoint path is required for evaluation."
 
     dataset = TwitterDataset(
         should_lemmatize=args.lemmatize,
@@ -155,16 +193,26 @@ def main():
     criterion = torch.nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
 
-    train_model(
-        model,
-        train_loader,
-        criterion,
-        optimizer,
-        args=args,
-        checkpoint_path="checkpoints/",
-    )
+    if args.evaluate_model:
+        model.load_state_dict(torch.load(args.checkpoint_path))
 
-    test_model(model, test_loader)
+        print(f"Loaded model from {args.checkpoint_path}")
+        sentences = [
+            "I love this product!",
+            "This is the worst experience I've ever had.",
+            "The service was great.",
+        ]
+        evaluate_samples(model, sentences, args)
+        test_model(model, test_loader)
+    else:
+        train_model(
+            model,
+            train_loader,
+            criterion,
+            optimizer,
+            args=args,
+            checkpoint_path="checkpoints/",
+        )
 
 
 if __name__ == "__main__":

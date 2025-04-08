@@ -1,5 +1,5 @@
 data.csv
 .venv
 __pycache__/
-cache/
+checkpoints/
 word2vec_twitter_model.bin
