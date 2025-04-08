@@ -112,6 +112,12 @@ def main():
         action="store_true",
         help="Whether to save the model after training",
     )
+    args.add_argument(
+        "--embed_model",
+        type=str,
+        default="twitter",
+        help="Embedding model to use (googlenews or twitter)",
+    )
 
     args = args.parse_args()
 
@@ -119,6 +125,7 @@ def main():
         should_lemmatize=args.lemmatize,
         sample_percentage=args.sample_percentage,
         max_word_count=args.max_word_count,
+        embed_model=args.embed_model,
     )
     train_dataset, test_dataset = random_split(
         dataset, [int(0.8 * len(dataset)), int(0.2 * len(dataset))]
@@ -129,7 +136,9 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
-    model = CNN(embedding_dim=300).to(device)
+    embedding_dim = 400 if args.embed_model == "twitter" else 300
+
+    model = CNN(embedding_dim=embedding_dim).to(device)
     criterion = torch.nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
 

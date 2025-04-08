@@ -1,10 +1,12 @@
 import logging
-import word2vecReaderUtils as utils
+import numpy as np
+import embedding_models.word2vecReaderUtils as utils
 from numpy import exp, dot, zeros, outer, random, dtype, float32 as REAL,\
     uint32, seterr, array, uint8, vstack, argsort, fromstring, sqrt, newaxis,\
     ndarray, empty, sum as np_sum, prod
 from six import string_types
 from gensim import matutils
+from typing import Tuple, Dict
 
 class Vocab(object):
     """A single vocabulary item, used internally for constructing binary trees (incl. both word leaves and inner nodes)."""
@@ -119,7 +121,7 @@ class Word2Vec:
             result.syn0 = zeros((vocab_size, layer1_size), dtype=REAL)
             if binary:
                 binary_len = dtype(REAL).itemsize * layer1_size
-                for line_no in xrange(vocab_size):
+                for line_no in range(vocab_size):
                     # mixed text and binary: read text first, then binary
                     word = []
                     while True:
@@ -138,7 +140,7 @@ class Word2Vec:
                         #logger.warning("vocabulary file is incomplete")
                         result.vocab[word] = Vocab(index=line_no, count=None)
                     result.index2word.append(word)
-                    result.syn0[line_no] = fromstring(fin.read(binary_len), dtype=REAL)
+                    result.syn0[line_no] = np.frombuffer(fin.read(binary_len), dtype=REAL)
             else:
                 for line_no, line in enumerate(fin):
                     parts = utils.to_unicode(line).split()
@@ -172,7 +174,7 @@ class Word2Vec:
         if getattr(self, 'syn0norm', None) is None or replace:
             #logger.info("precomputing L2-norms of word weight vectors")
             if replace:
-                for i in xrange(self.syn0.shape[0]):
+                for i in range(self.syn0.shape[0]):
                     self.syn0[i, :] /= sqrt((self.syn0[i, :] ** 2).sum(-1))
                 self.syn0norm = self.syn0
                 if hasattr(self, 'syn1'):
@@ -259,10 +261,19 @@ class Word2Vec:
         # ignore (don't return) words from the input
         result = [(self.index2word[sim], float(dists[sim],)) for sim in best if sim not in all_words]
         return result[:topn]
-    
-if __name__ == "__main__":
 
+
+def get_twitter_embedding_model() -> Tuple[Word2Vec, int, Dict]:
+    """
+    Load the Word2Vec model and return it along with the embedding dimension and vocabulary.
+
+    Returns:
+        - model: The loaded Word2Vec model.
+        - embedding_dim: The dimensionality of the word vectors.
+        - vocab: The vocabulary of the model.
+    """
     model_path = "./word2vec_twitter_model.bin"
-    print("Loading the model, this can take some time...")
+    print("Loading the Twitter Word2Vec model, this can take some time...")
+
     model = Word2Vec.load_word2vec_format(model_path, binary=True)
-    print("The vocabulary size is: "+str(len(model.vocab)))
+    return model, model.layer1_size, model.vocab

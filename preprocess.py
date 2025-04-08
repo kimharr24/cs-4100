@@ -8,7 +8,8 @@ import torch
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 from typing import List
-import gensim.downloader as api
+from embedding_models.googleNewsWord2Vec import get_google_news_embedding_model
+from embedding_models.twitterWord2Vec import get_twitter_embedding_model
 
 
 class Lemmatizer:
@@ -30,18 +31,22 @@ class Preprocessor:
     def __init__(
         self,
         should_lemmatize: bool = True,
-        cache_dir: str = "cache/",
         max_word_count: int = 20,
-        embedding_dim: int = 300,
+        embed_model: str = "twitter",
     ):
         self.should_lemmatize = should_lemmatize
         self.lemmatizer = Lemmatizer() if self.should_lemmatize else None
-        self.embedding_model_name = "word2vec-google-news-300"
-        self.cache_dir = cache_dir
         self.max_word_count = max_word_count
-        self.embedding_model = api.load(self.embedding_model_name)
 
+        model, embedding_dim, vocab = (
+            get_twitter_embedding_model()
+            if embed_model == "twitter"
+            else get_google_news_embedding_model()
+        )
+
+        self.embedding_model = model
         self.embedding_dim = embedding_dim
+        self.vocab = vocab
         self.stopwords = set(stopwords.words("english"))
 
     def _delete_user_mentions(self, tweet: str) -> str:
@@ -133,7 +138,7 @@ class Preprocessor:
                     if i >= self.max_word_count:
                         break
                     # If the word is in the embedding model vocabulary, get its vector
-                    if word in self.embedding_model.key_to_index:
+                    if word in self.vocab:
                         embeddings[i] = torch.tensor(
                             self.embedding_model[word], dtype=torch.float16
                         )

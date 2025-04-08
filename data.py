@@ -12,9 +12,10 @@ class TwitterDataset(torch.utils.data.Dataset):
         should_lemmatize: bool = True,
         sample_percentage: float = 0.07,
         max_word_count: int = 20,
+        embed_model: str = "twitter",
     ) -> None:
         self.processor = Preprocessor(
-            should_lemmatize=should_lemmatize, max_word_count=max_word_count
+            should_lemmatize=should_lemmatize, max_word_count=max_word_count, embed_model=embed_model
         )
         df = pd.read_csv(
             "data.csv",
