@@ -15,21 +15,34 @@ def train_model(
     train_loader,
     criterion,
     optimizer,
-    num_epochs=100,
+    args,
     checkpoint_path="checkpoints/",
 ):
-    print(f"Training model for {num_epochs} epochs")
+    print(f"Training model for {args.epochs} epochs")
     model.train()
-    for epoch in range(num_epochs):
+    for epoch in range(args.epochs):
+        loss, steps = 0, 0
         for batch in train_loader:
             texts, labels = batch
             texts, labels = texts.to(device), labels.to(device)
             outputs = model(texts)
+
             loss = criterion(outputs, labels)
+            loss += loss.item()
+            steps += 1
+
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
+        print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {(loss / steps):.4f}")
+
+    if args.save_model:
+        name = f"model_epochs_{args.epochs}_batch_{args.batch_size}_lr_{args.learning_rate}_sample_{args.sample_percentage}_lemmatize_{args.lemmatize}_max_words_{args.max_word_count}.pth"
+        torch.save(
+            model.state_dict(),
+            f"{checkpoint_path}{name}",
+        )
+        print(f"Model saved to {checkpoint_path}{name}")
 
 
 def main():
@@ -62,6 +75,11 @@ def main():
         default=20,
         help="Maximum number of words in a sentence",
     )
+    args.add_argument(
+        "--save_model",
+        action="store_true",
+        help="Whether to save the model after training",
+    )
 
     args = args.parse_args()
 
@@ -88,7 +106,8 @@ def main():
         train_loader,
         criterion,
         optimizer,
-        num_epochs=args.epochs,
+        args=args,
+        checkpoint_path="checkpoints/",
     )
 
 
