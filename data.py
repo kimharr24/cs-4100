@@ -14,25 +14,17 @@ class TwitterDataset(torch.utils.data.Dataset):
             names=["sentiment", "tweet_id", "data", "query", "user", "text"],
             encoding="ISO-8859-1",
         )
-        train_df = pd.DataFrame(
-            {"text": df["text"].to_numpy(), "sentiment": df["sentiment"].to_numpy()}
-        )
-        # Pre-process the sentences to remove punctuation, stopwords, etc.
-        processed_sentences = self.processor.get_preprocessed_sentences(list(train_df["text"]))
-        processed_train_df = pd.DataFrame(
-            {"text": processed_sentences, "sentiment": train_df["sentiment"].to_numpy()}
-        )
-
-        # Remove rows where text is empty
-        num_empty_rows = processed_train_df[processed_train_df["text"] == ""].shape[0]
-        print(f"Removing {num_empty_rows} rows where text is empty...")
-        self.processed_train_df = processed_train_df[processed_train_df["text"] != ""]
+        df = df.iloc[:int(len(df) * 0.07), :][["text", "sentiment"]]
+    
+        processed_sentences, non_empty_sentence_indices = self.processor.get_preprocessed_sentences(list(df["text"]))
+        self.processed_sentences = processed_sentences
+        self.labels = df["sentiment"].values[non_empty_sentence_indices]
 
     def __len__(self) -> int:
-        return len(self.processed_train_df)
+        return len(self.processed_sentences)
 
     def __getitem__(self, idx: int) -> Tuple[str, int]:
         return (
-            self.processed_train_df["text"].values[idx],
-            self["sentiment"].values[idx],
+            self.processed_sentences[idx],
+            self.labels[idx],
         )

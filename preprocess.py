@@ -1,8 +1,11 @@
 import re
 import os
+import gc
+import gzip
 import nltk
 from tqdm import tqdm
 import time
+import torch
 import pickle
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
@@ -15,16 +18,11 @@ class Lemmatizer:
 
     def __init__(self):
         self.lemmatizer = WordNetLemmatizer()
-        self.stopwords = set(stopwords.words("english"))
 
     def lemmatize(self, tweet: str) -> str:
-        """Removes stopwords and performs lemmatization on a tweet."""
+        """Performs lemmatization on a tweet."""
         words = nltk.word_tokenize(tweet)
-        filtered_words = [
-            self.lemmatizer.lemmatize(word)
-            for word in words
-            if word not in self.stopwords
-        ]
+        filtered_words = [self.lemmatizer.lemmatize(word) for word in words]
         return " ".join(filtered_words)
 
 
@@ -35,19 +33,38 @@ class Preprocessor:
         self,
         should_lemmatize: bool = True,
         cache_dir: str = "cache/",
+        max_word_count: int = 20,
+        embedding_dim: int = 300,
     ):
-        self.lemmatizer = Lemmatizer()
-        self.embedding_model_name = "word2vec-google-news-300"
-        self.embedding_model = api.load(self.embedding_model_name)
         self.should_lemmatize = should_lemmatize
+        self.lemmatizer = Lemmatizer() if self.should_lemmatize else None
+        self.embedding_model_name = "word2vec-google-news-300"
         self.cache_dir = cache_dir
+        self.max_word_count = max_word_count
+        self.embedding_model = (
+            api.load(self.embedding_model_name)
+            if not os.path.exists(self._get_cache_name())
+            else None
+        )
+
+        self.embedding_dim = embedding_dim
+        self.stopwords = set(stopwords.words("english"))
 
     def _get_cache_name(self) -> str:
         """Returns the name of the cache file."""
         cache_name = ""
         if self.should_lemmatize:
             cache_name += "lemmatized"
-        return self.cache_dir + self.embedding_model_name + "_" + cache_name + ".pkl"
+        return (
+            self.cache_dir
+            + self.embedding_model_name
+            + "_"
+            + cache_name
+            + "_"
+            + str(self.max_word_count)
+            + "_word_max"
+            + ".pkl.gz"
+        )
 
     def _delete_user_mentions(self, tweet: str) -> str:
         """Removes user mentions from a tweet. (e.g. @someuser hello -> hello)"""
@@ -107,9 +124,17 @@ class Preprocessor:
             time_end = time.perf_counter()
             print(f"Time to complete: {time_end - time_start} seconds.")
 
+            print("Removing stopwords...")
+            filtered_sentences = []
+            for sentence in tqdm(sentences):
+                words = sentence.split()
+                filtered_words = [word for word in words if word not in self.stopwords]
+                filtered_sentences.append(" ".join(filtered_words))
+            sentences = filtered_sentences
+
             if self.should_lemmatize:
                 time_start = time.perf_counter()
-                print("Removing stopwords and performing lemmatization...")
+                print("Performing lemmatization...")
                 lemmatizer = Lemmatizer()
                 sentences = [
                     lemmatizer.lemmatize(sentence) for sentence in tqdm(sentences)
@@ -119,11 +144,48 @@ class Preprocessor:
             else:
                 print("Skipping lemmatization.")
 
-            with open(self._get_cache_name(), "wb") as f:
-                pickle.dump(sentences, f)
+            time_start = time.perf_counter()
+            print("Creating embeddings...")
+            all_embeddings = []
+            non_empty_sentence_indices = []
+            for sentence_index, sentence in tqdm(
+                enumerate(sentences), total=len(sentences)
+            ):
+                if sentence != "":
+                    words = sentence.split()
+                    embeddings = torch.zeros((self.max_word_count, self.embedding_dim))
+                    for i, word in enumerate(words):
+                        if i >= self.max_word_count:
+                            break
+                        # If the word is in the embedding model vocabulary, get its vector
+                        if word in self.embedding_model.key_to_index:
+                            embeddings[i] = torch.tensor(
+                                self.embedding_model[word], dtype=torch.float16
+                            )
+                        # If the word is not in the vocabulary, fill with zeros
+                        else:
+                            embeddings[i] = torch.zeros(self.embedding_dim)
+                    # If the number of words is less than max_word_count, fill the rest with zeros as padding
+                    if len(words) < self.max_word_count:
+                        for i in range(len(words), self.max_word_count):
+                            embeddings[i] = torch.zeros(self.embedding_dim)
+                    all_embeddings.append(embeddings)
+                    non_empty_sentence_indices.append(sentence_index)
+
+            time_end = time.perf_counter()
+            print(f"Time to complete: {time_end - time_start} seconds.")
+
+            del sentences
+            del self.embedding_model
+            del self.lemmatizer
+            del self.stopwords
+            gc.collect()
+
+            # with gzip.open(self._get_cache_name(), "wb") as f:
+            #     pickle.dump(all_embeddings, f)
         else:
             print("Loading preprocessed sentences from cache")
-            with open(self._get_cache_name(), "rb") as f:
-                sentences = pickle.load(f)
+            with gzip.open(self._get_cache_name(), "rb") as f:
+                all_embeddings = pickle.load(f)
 
-        return sentences
+        return all_embeddings, non_empty_sentence_indices

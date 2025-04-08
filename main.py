@@ -1,6 +1,7 @@
 import pandas as pd
 from torch.utils.data import random_split, DataLoader
 import argparse
+import torch
 from data import TwitterDataset
 from cnn import CNN
 
@@ -17,18 +18,18 @@ def train_model(
     for epoch in range(num_epochs):
         for batch in train_loader:
             texts, labels = batch
-            optimizer.zero_grad()
             outputs = model(texts)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
 
 
 def main():
-    dataset = TwitterDataset(should_lemmatize=True)
+    dataset = TwitterDataset(should_lemmatize=False)
     train_dataset, test_dataset = random_split(
-        dataset, [int(0.8 * len(dataset)), int(0.2 * len(dataset))]
+        dataset, [int(0.8 * len(dataset)) + 1, int(0.2 * len(dataset))]
     )
     print(f"Train dataset size: {len(train_dataset)}")
     print(f"Test dataset size: {len(test_dataset)}")
@@ -37,6 +38,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
     model = CNN(embedding_dim=300, num_classes=2)
+    criterion = torch.nn.CrossEntropyLoss()
 
 
 if __name__ == "__main__":
