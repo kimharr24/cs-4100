@@ -26,7 +26,7 @@ def train_model(
 
 
 def main():
-    dataset = TwitterDataset()
+    dataset = TwitterDataset(should_lemmatize=True)
     train_dataset, test_dataset = random_split(
         dataset, [int(0.8 * len(dataset)), int(0.2 * len(dataset))]
     )
@@ -35,6 +35,8 @@ def main():
 
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    model = CNN(embedding_dim=300, num_classes=2)
 
 
 if __name__ == "__main__":

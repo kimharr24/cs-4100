@@ -1,4 +1,4 @@
 data.csv
 .venv
 __pycache__/
-preprocessed_sentences.pkl
+cache/

@@ -1,13 +1,14 @@
 import pandas as pd
 import torch
 from typing import Tuple
-from preprocess import get_preprocessed_sentences
+from preprocess import Preprocessor
 
 
 class TwitterDataset(torch.utils.data.Dataset):
     """Custom dataset for Twitter sentiment analysis."""
 
-    def __init__(self):
+    def __init__(self, should_lemmatize: bool = True) -> None:
+        self.processor = Preprocessor(should_lemmatize=should_lemmatize)
         df = pd.read_csv(
             "data.csv",
             names=["sentiment", "tweet_id", "data", "query", "user", "text"],
@@ -17,7 +18,7 @@ class TwitterDataset(torch.utils.data.Dataset):
             {"text": df["text"].to_numpy(), "sentiment": df["sentiment"].to_numpy()}
         )
         # Pre-process the sentences to remove punctuation, stopwords, etc.
-        processed_sentences = get_preprocessed_sentences(list(train_df["text"]))
+        processed_sentences = self.processor.get_preprocessed_sentences(list(train_df["text"]))
         processed_train_df = pd.DataFrame(
             {"text": processed_sentences, "sentiment": train_df["sentiment"].to_numpy()}
         )
