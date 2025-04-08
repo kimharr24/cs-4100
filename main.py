@@ -7,6 +7,7 @@ from sklearn.metrics import classification_report
 from data import TwitterDataset
 from models.cnn import CNN
 from models.mlp import MLP
+from preprocess import Preprocessor
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -78,13 +79,16 @@ def test_model(model, test_loader):
     )
 
 
-def evaluate_samples(model, sentences, args, processor) -> None:
+def evaluate_samples(model, sentences, args) -> None:
     """Evaluate the model on a list of sentences."""
     model.eval()
     with torch.no_grad():
-        processed_sentences, non_empty_indices = processor.get_preprocessed_sentences(
-            sentences
-        )
+        processed_sentences, non_empty_indices = Preprocessor(
+            should_lemmatize=args.lemmatize,
+            max_word_count=args.max_word_count,
+            embed_model=args.embed_model,
+            should_reverse=args.should_reverse,
+        ).get_preprocessed_sentences(sentences)
 
         assert len(non_empty_indices) == len(
             processed_sentences
@@ -151,35 +155,21 @@ def main():
     args.add_argument(
         "--evaluate_model",
         action="store_true",
-        help="Whether to evaluate the model.",
+        help="Whether to evaluate the model on example sentences.",
     )
     args.add_argument(
         "--checkpoint_path",
         type=str,
         help="Path to the model checkpoint",
     )
+    args.add_argument(
+        "--should_reverse",
+        action="store_true",
+        help="Whether to reverse the order of the words in the sentence",
+    )
 
     args = args.parse_args()
-    if args.evaluate_model:
-        assert args.checkpoint_path, "Checkpoint path is required for evaluation."
-
-    dataset = TwitterDataset(
-        should_lemmatize=args.lemmatize,
-        sample_percentage=args.sample_percentage,
-        max_word_count=args.max_word_count,
-        embed_model=args.embed_model,
-    )
-    train_dataset, test_dataset = random_split(
-        dataset, [int(0.8 * len(dataset)), int(0.2 * len(dataset))]
-    )
-    print(f"Train dataset size: {len(train_dataset)}")
-    print(f"Test dataset size: {len(test_dataset)}")
-
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
-
     embedding_dim = 400 if args.embed_model == "twitter" else 300
-
     model = (
         CNN(embedding_dim=embedding_dim).to(device)
         if args.model == "cnn"
@@ -187,10 +177,8 @@ def main():
             device
         )
     )
-    criterion = torch.nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-
     if args.evaluate_model:
+        assert args.checkpoint_path, "Checkpoint path is required for evaluation."
         model.load_state_dict(torch.load(args.checkpoint_path))
 
         print(f"Loaded model from {args.checkpoint_path}")
@@ -199,9 +187,34 @@ def main():
             "This is the worst experience I've ever had.",
             "The service was great.",
         ]
-        evaluate_samples(model, sentences, args, dataset.processor)
-        test_model(model, test_loader)
+        evaluate_samples(model, sentences, args)
     else:
+        dataset = TwitterDataset(
+            should_lemmatize=args.lemmatize,
+            sample_percentage=args.sample_percentage,
+            max_word_count=args.max_word_count,
+            embed_model=args.embed_model,
+        )
+
+        generator = torch.Generator().manual_seed(42)
+        train_dataset, test_dataset = random_split(
+            dataset,
+            [int(0.8 * len(dataset)), int(0.2 * len(dataset))],
+            generator=generator,
+        )
+        print(f"Train dataset size: {len(train_dataset)}")
+        print(f"Test dataset size: {len(test_dataset)}")
+
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True
+        )
+        test_loader = DataLoader(
+            test_dataset, batch_size=args.batch_size, shuffle=False
+        )
+
+        criterion = torch.nn.BCEWithLogitsLoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+
         train_model(
             model,
             train_loader,
@@ -210,6 +223,7 @@ def main():
             args=args,
             checkpoint_path="checkpoints/",
         )
+        test_model(model, test_loader)
 
 
 if __name__ == "__main__":
