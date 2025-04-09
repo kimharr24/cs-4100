@@ -42,7 +42,7 @@ def train_model(
         print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {(total_loss / steps):.4f}")
 
     if args.save_model:
-        name = f"model_epochs_{args.epochs}_batch_{args.batch_size}_lr_{args.learning_rate}_sample_{args.sample_percentage}_lemmatize_{args.lemmatize}_max_words_{args.max_word_count}.pth"
+        name = f"{args.model}_epochs_{args.epochs}_batch_{args.batch_size}_lr_{args.learning_rate}_sample_{args.sample_percentage}_lemmatize_{args.lemmatize}_max_words_{args.max_word_count}.pth"
         torch.save(
             model.state_dict(),
             f"{checkpoint_path}{name}",
@@ -186,9 +186,9 @@ def main():
         print(f"Loaded model from {args.checkpoint_path}")
         sentences = [
             "I love this product!",
-            "This is the worst experience I've ever had.",
-            "The service was great.",
-            "I am sad but actually I am not"
+            "This is the worst :(",
+            "I am not happy",
+            "Initially, I said I am happy but actually I am not"
         ]
         evaluate_samples(model, sentences, args)
     else:
