@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from sklearn.metrics import classification_report
 from data import TwitterDataset
-from models.cnn import CNN
+from models.cnn import CNN, CNNFromScratch
 from models.mlp import MLP
 from preprocess import Preprocessor
 
@@ -169,16 +169,29 @@ def main():
         action="store_true",
         help="Whether to reverse the order of the words in the sentence",
     )
+    args.add_argument(
+        "--from_scratch",
+        action="store_true",
+        help="Whether to train the CNN model from scratch",
+        default=False,
+    )
 
     args = args.parse_args()
     embedding_dim = 400 if args.embed_model == "twitter" else 300
-    model = (
-        CNN(embedding_dim=embedding_dim).to(device)
-        if args.model == "cnn"
-        else MLP(embedding_dim=embedding_dim, max_word_count=args.max_word_count).to(
+
+    if args.from_scratch:
+        model = CNNFromScratch(embedding_dim=embedding_dim).to(device)
+    elif args.model == "cnn":
+        model = CNN(embedding_dim=embedding_dim).to(device)
+    elif args.model == "mlp":
+        model = MLP(embedding_dim=embedding_dim, max_word_count=args.max_word_count).to(
             device
         )
-    )
+    else:
+        raise ValueError(
+            f"Model {args.model} not supported. Choose between 'cnn' and 'mlp'."
+        )
+
     if args.evaluate_model:
         assert args.checkpoint_path, "Checkpoint path is required for evaluation."
         model.load_state_dict(torch.load(args.checkpoint_path))
@@ -188,7 +201,7 @@ def main():
             "I love this product!",
             "This is the worst :(",
             "I am not happy",
-            "Initially, I said I am happy but actually I am not"
+            "Initially, I said I am happy but actually I am not",
         ]
         evaluate_samples(model, sentences, args)
     else:

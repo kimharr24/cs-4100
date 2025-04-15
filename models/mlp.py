@@ -1,6 +1,7 @@
 import torch
 
 class MLP(torch.nn.Module):
+    """A simple MLP model for text classification."""
     def __init__(self, embedding_dim: int, max_word_count: int = 20):
         super(MLP, self).__init__()
 
